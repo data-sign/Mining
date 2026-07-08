@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0a1a" />
+  <meta name="description" content="MINE RUSH — 도파민이 터지는 하이퍼캐주얼 지뢰찾기" />
+  <title>MINE RUSH · 지뢰러시</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💣</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="hud">
+      <div class="hud__brand">MINE&nbsp;RUSH</div>
+      <div class="hud__stats">
+        <div class="stat stat--mines"><span class="stat__icon">💣</span><span id="mineCount" class="stat__val">10</span></div>
+        <div class="stat stat--timer"><span class="stat__icon">⏱️</span><span id="timer" class="stat__val">0</span></div>
+        <div class="stat stat--score"><span class="stat__icon">⭐</span><span id="score" class="stat__val">0</span></div>
+      </div>
+      <div class="hud__controls">
+        <select id="difficulty" class="select" aria-label="난이도">
+          <option value="easy">쉬움 · 9×9</option>
+          <option value="normal">보통 · 16×16</option>
+          <option value="hard">어려움 · 16×30</option>
+        </select>
+        <button id="muteToggle" class="btn btn--mute" aria-pressed="false" title="사운드 켜기/끄기">🔊</button>
+        <button id="flagToggle" class="btn btn--flag" aria-pressed="false" title="깃발 모드">🚩</button>
+        <button id="restart" class="btn btn--restart" title="새 게임">↻</button>
+      </div>
+    </header>
+
+    <div class="combo" id="combo" data-active="false">
+      <span class="combo__label">COMBO</span>
+      <span class="combo__x" id="comboX">×1</span>
+      <div class="combo__bar"><div class="combo__fill" id="comboFill"></div></div>
+    </div>
+
+    <main class="board-wrap">
+      <canvas id="fxCanvas" class="fx-canvas"></canvas>
+      <div id="board" class="board" role="grid" aria-label="지뢰찾기 보드"></div>
+    </main>
+
+    <footer class="best-strip" id="bestStrip">
+      <span class="best-strip__item">🏆 최고점수 <b id="bestScore">0</b></span>
+      <span class="best-strip__item">⚡ 최단시간 <b id="bestTime">–</b></span>
+      <span class="best-strip__item">🔥 스트릭 <b id="streak">0</b></span>
+    </footer>
+
+    <div id="overlay" class="overlay" data-show="false" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
+      <div class="overlay__card">
+        <div class="overlay__emoji" id="overlayEmoji" aria-hidden="true">🎉</div>
+        <h2 class="overlay__title" id="overlayTitle">CLEAR!</h2>
+        <p class="overlay__sub" id="overlaySub" aria-live="assertive"></p>
+        <button class="btn btn--primary" id="playAgain">다시하기</button>
+      </div>
+    </div>
+
+    <div id="coach" class="coach" data-show="false" role="status">
+      💡 <b>좌클릭</b> 열기 · <b>우클릭</b>/길게눌러 🚩 · 숫자칸 <b>더블클릭</b> 자동열기
+      <button id="coachClose" class="coach__x" aria-label="닫기">✕</button>
+    </div>
+  </div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
