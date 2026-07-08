@@ -733,3 +733,90 @@ button, select { font-family: inherit; }
   .combo__fill::after { display: none; }
   .overlay__emoji { animation: none; }
 }
+
+/* ========================================================================== *
+ * ROUND-2 POLISH — PM 검수 반영 (도파민 곡선·정합·접근성)
+ * ========================================================================== */
+
+/* #3 — score "pop" 실제 애니메이션 (컨트롤러가 .stat--score 에 .pop 토글) */
+@keyframes scorePop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.stat--score.pop { animation: scorePop 0.34s var(--ease-spring); }
+
+/* #5 — 밀집 보드(cols>=20)는 min-height 해제하여 정사각 셀 유지 */
+.board--dense .cell { min-height: 0; }
+
+/* #6 — 게임오버 후 보드 freeze: 닫힌 칸 hover/pointer 죽이기 */
+.board[data-frozen="true"] .cell[data-revealed="false"] {
+  cursor: default;
+  transform: none !important;
+}
+.board[data-frozen="true"] .cell[data-revealed="false"]:hover { transform: none !important; }
+
+/* #8 — 남은 지뢰 음수일 때 경고색(버그처럼 보이지 않게) */
+.stat--mines .stat__val.is-negative {
+  color: #ff5470;
+  text-shadow: 0 0 12px rgba(255, 84, 112, 0.6);
+}
+
+/* #9 — 셀 키보드 포커스 링 */
+.cell:focus-visible {
+  outline: 2px solid var(--neon-cyan, #24e6ff);
+  outline-offset: 2px;
+  z-index: 3;
+  box-shadow: 0 0 14px rgba(36, 230, 255, 0.7);
+}
+
+/* #11 — 코치 힌트 토스트 (최초 1회) */
+.coach {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%) translateY(16px);
+  max-width: min(92vw, 520px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: #eae6ff;
+  background: rgba(30, 24, 54, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(124, 77, 255, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s var(--ease-spring, ease);
+  z-index: 60;
+}
+.coach[data-show="true"] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.coach b { color: var(--neon-cyan, #24e6ff); font-weight: 700; }
+.coach__x {
+  margin-left: 4px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cfc8ea;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.coach__x:hover { background: rgba(255, 255, 255, 0.2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .stat--score.pop { animation: none; }
+  .coach { transition: opacity 0.2s ease; }
+}

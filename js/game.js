@@ -47,10 +47,11 @@
   let cfg = DIFFICULTY.easy;
 
   let score = 0;
-  let combo = 0;             // 현재 콤보 수
+  let combo = 0;             // 현재 콤보 수 (성공한 "클릭 액션" 기준)
   let comboTier = 0;         // 배율 티어
   let comboTimer = null;     // 콤보 유지 타이머
-  const COMBO_WINDOW = 1500; // ms
+  const COMBO_WINDOW = 5000; // ms — 어려운 난이도에서 고민할 시간을 넉넉히
+  const TIER_STEP = 3;       // 콤보 TIER_STEP회마다 배율 +1
 
   let seconds = 0;
   let tickInterval = null;
@@ -60,7 +61,7 @@
   let audioUnlocked = false;
 
   // ---- 유틸 -----------------------------------------------------------------
-  const multiplierFor = (c) => Math.min(1 + Math.floor(c / 5), 10);
+  const multiplierFor = (c) => Math.min(1 + Math.floor(c / TIER_STEP), 10);
 
   function loadRecords() {
     try { return JSON.parse(localStorage.getItem('mineRush.records') || '{}'); }
@@ -104,6 +105,12 @@
     engine = new MinesweeperEngine(cfg.rows, cfg.cols, cfg.mines);
     boardEl.style.setProperty('--cols', cfg.cols);
     boardEl.style.setProperty('--rows', cfg.rows);
+    boardEl.dataset.frozen = 'false';
+    // 밀집 보드(넓은 열)는 정사각 셀을 유지하도록 min-height 해제 (#5)
+    boardEl.classList.toggle('board--dense', cfg.cols >= 20);
+    // wrap 종횡비를 그리드 실제 비율에 맞춰 찌그러짐/빈공간 제거 (#4)
+    const wrap = boardEl.parentElement;
+    if (wrap) wrap.style.aspectRatio = `${cfg.cols} / ${cfg.rows}`;
     boardEl.innerHTML = '';
     cells = [];
 
@@ -146,8 +153,10 @@
   }
 
   // ---- 콤보 -----------------------------------------------------------------
+  // 콤보 "티어"는 flood 칸 수가 아니라 성공한 클릭 액션으로 쌓인다.
+  // 한 번의 액션 = 기본 +1, 큰 flood는 소량 보너스(최대 +3)만. → 곡선이 살아있음.
   function bumpCombo(openedCount) {
-    combo += openedCount;
+    combo += 1 + Math.min(2, Math.floor(openedCount / 10));
     const newTier = multiplierFor(combo);
     if (newTier > comboTier) {
       comboTier = newTier;
@@ -155,9 +164,9 @@
     }
     comboEl.dataset.active = 'true';
     comboXEl.textContent = `×${comboTier}`;
-    // 게이지: 현재 티어 내 진행도
-    const within = combo % 5;
-    comboFillEl.style.width = `${(within / 5) * 100}%`;
+    // 게이지: 다음 티어까지 진행도 (만렙이면 가득)
+    const within = comboTier >= 10 ? TIER_STEP : combo % TIER_STEP;
+    comboFillEl.style.width = `${(within / TIER_STEP) * 100}%`;
 
     clearTimeout(comboTimer);
     comboTimer = setTimeout(resetCombo, COMBO_WINDOW);
@@ -172,12 +181,16 @@
   }
 
   function addScore(openedCount) {
+    // 점수는 flood 규모 × 콤보 배율 — 대량 개방의 손맛은 여기서 보상
     const gained = openedCount * 10 * multiplierFor(combo);
     score += gained;
     scoreEl.textContent = score;
-    scoreEl.classList.remove('pop');
-    void scoreEl.offsetWidth; // reflow to restart animation
-    scoreEl.classList.add('pop');
+    const card = scoreEl.closest('.stat--score');
+    if (card) {
+      card.classList.remove('pop');
+      void card.offsetWidth; // reflow to restart animation
+      card.classList.add('pop');
+    }
   }
 
   // ---- 타이머 ---------------------------------------------------------------
@@ -185,10 +198,10 @@
     if (started) return;
     started = true;
     seconds = 0;
-    timerEl.textContent = seconds;
+    timerEl.textContent = fmtTime(seconds);
     tickInterval = setInterval(() => {
       seconds++;
-      timerEl.textContent = seconds;
+      timerEl.textContent = fmtTime(seconds);
     }, 1000);
   }
   function stopTimer() { clearInterval(tickInterval); tickInterval = null; }
@@ -214,7 +227,9 @@
 
   // ---- 게임 진행 처리 --------------------------------------------------------
   function updateMineCounter() {
-    mineCountEl.textContent = engine.remainingMines;
+    const rem = engine.remainingMines;
+    mineCountEl.textContent = rem;
+    mineCountEl.classList.toggle('is-negative', rem < 0);
   }
 
   function handleReveal(r, c) {
@@ -272,6 +287,7 @@
   function onLose(hitMine) {
     stopTimer();
     resetCombo();
+    boardEl.dataset.frozen = 'true';
     // 모든 지뢰 공개
     for (const { r, c } of engine.allMines()) {
       const el = cells[r][c];
@@ -297,6 +313,7 @@
   function onWin() {
     stopTimer();
     resetCombo();
+    boardEl.dataset.frozen = 'true';
     // 승리 보너스: 남은 여유 + 난이도 가중
     const diffWeight = { easy: 1, normal: 2, hard: 3 }[level] || 1;
     const timeBonus = Math.max(0, 500 - seconds * 2) * diffWeight;
@@ -333,6 +350,8 @@
     overlaySub.textContent = sub;
     overlayEl.dataset.result = win ? 'win' : 'lose';
     overlayEl.dataset.show = 'true';
+    // 접근성: 결과 모달로 포커스 이동 (#10)
+    setTimeout(() => { try { $('playAgain').focus(); } catch { /* noop */ } }, 60);
   }
   function hideOverlay() { overlayEl.dataset.show = 'false'; }
 
@@ -345,7 +364,7 @@
     score = 0;
     seconds = 0;
     scoreEl.textContent = '0';
-    timerEl.textContent = '0';
+    timerEl.textContent = fmtTime(0);
     buildBoard();
     updateMineCounter();
     refreshBestStrip();
@@ -367,7 +386,8 @@
     const hit = cellFromEvent(e);
     if (!hit) return;
     longPressed = false;
-    if (e.pointerType === 'touch') {
+    // 닫힌 칸에서만 롱프레스=깃발. 열린 숫자칸은 그대로 두어 chord 탭이 살아있게 (#11)
+    if (e.pointerType === 'touch' && hit.el.dataset.revealed !== 'true') {
       pressTimer = setTimeout(() => {
         longPressed = true;
         handleFlag(hit.r, hit.c);
@@ -419,27 +439,54 @@
     flagToggleEl.setAttribute('aria-pressed', String(flagMode));
     flagToggleEl.classList.toggle('is-on', flagMode);
   });
-  muteToggleEl.addEventListener('click', () => {
-    muted = !muted;
+  function applyMute() {
     if (window.Effects) Effects.setMuted(muted);
     muteToggleEl.setAttribute('aria-pressed', String(muted));
     muteToggleEl.textContent = muted ? '🔇' : '🔊';
+  }
+  muteToggleEl.addEventListener('click', () => {
+    muted = !muted;
+    try { localStorage.setItem('mineRush.muted', muted ? '1' : '0'); } catch { /* noop */ }
+    applyMute();
   });
+
+  // Esc = 오버레이 열려있으면 다시하기 (#10)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlayEl.dataset.show === 'true') { ensureAudio(); newGame(); }
+  });
+
+  // 코치 힌트: 최초 방문 1회 노출 (#11)
+  const coachEl = $('coach');
+  function dismissCoach() {
+    coachEl.dataset.show = 'false';
+    try { localStorage.setItem('mineRush.coached', '1'); } catch { /* noop */ }
+  }
+  $('coachClose').addEventListener('click', dismissCoach);
+  boardEl.addEventListener('pointerdown', dismissCoach, { once: true });
 
   window.addEventListener('resize', () => {
     if (window.Effects && Effects.init) Effects.init(canvasEl);
   });
 
   // ---- 시작 -----------------------------------------------------------------
-  window.addEventListener('DOMContentLoaded', () => {
+  let booted = false;
+  function boot() {
+    if (booted) return;
+    booted = true;
+    // 음소거 상태 복원 (#12)
+    try { muted = localStorage.getItem('mineRush.muted') === '1'; } catch { /* noop */ }
+    applyMute();
     level = difficultyEl.value || 'easy';
     cfg = DIFFICULTY[level];
     newGame();
-  });
-  // DOMContentLoaded 가 이미 지났을 경우 대비
-  if (document.readyState !== 'loading') {
-    level = difficultyEl.value || 'easy';
-    cfg = DIFFICULTY[level];
-    newGame();
+    // 코치 힌트 최초 1회 노출 (#11)
+    let coached = false;
+    try { coached = localStorage.getItem('mineRush.coached') === '1'; } catch { /* noop */ }
+    if (!coached) {
+      coachEl.dataset.show = 'true';
+      setTimeout(dismissCoach, 7000);
+    }
   }
+  window.addEventListener('DOMContentLoaded', boot);
+  if (document.readyState !== 'loading') boot();
 })();
